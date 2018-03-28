@@ -20,7 +20,6 @@
 // ==========================================================================
 
 #include "RequestHandler.hpp"
-#include <fstream>
 #include <Poco/Net/WebSocket.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/HTTPServerRequest.h>
@@ -45,6 +44,7 @@
 #include <utility>
 #include <Poco/Net/NetException.h>
 #include <Poco/Delegate.h>
+#include "plots/Plot.hpp"
 
 const std::string cookieUserName = "creepminer-webserver-user";
 const std::string cookiePassName = "creepminer-webserver-pass";
@@ -453,7 +453,9 @@ void Burst::RequestHandler::rescanPlotfiles(Poco::Net::HTTPServerRequest& reques
 	response.send();
 }
 
-void Burst::RequestHandler::checkPlotfile(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response, Miner& miner, MinerServer& server, std::string plotPathEnc)
+void Burst::RequestHandler::checkPlotfile(Poco::Net::HTTPServerRequest& request,
+                                          Poco::Net::HTTPServerResponse& response, Miner& miner, MinerServer& server,
+                                          const std::string& plotPathEnc)
 {
 	// first check the credentials
 	if (!checkCredentials(request, response))
@@ -465,21 +467,20 @@ void Burst::RequestHandler::checkPlotfile(Poco::Net::HTTPServerRequest& request,
 
 	log_information(MinerLogger::server, "Got request to check a file for corruption...");
 
-	std::string plotPath = "";
+	std::string plotPath;
 	Poco::URI::decode(plotPathEnc, plotPath, false);
+	PlotFile plotFile{move(plotPath), 0};
 
-	float plotIntegrity = PlotGenerator::checkPlotfileIntegrity(plotPath, miner );
-
-	std::string plotID = getAccountIdFromPlotFile(plotPath) + "_" + getStartNonceFromPlotFile(plotPath) + "_" + getNonceCountFromPlotFile(plotPath) + "_" + getStaggerSizeFromPlotFile(plotPath);
+	const auto plotIntegrity = PlotGenerator::checkPlotfileIntegrity(plotFile.toString(), miner);
+	const auto plotId = plotFile.toString();
 
 	//response
 	Poco::JSON::Object json;
 	json.set("type", "plotcheck-result");
-	json.set("plotID", plotID);
+	json.set("plotID", plotId);
 	json.set("plotIntegrity", std::to_string(plotIntegrity));
 
 	server.sendToWebsockets(json);
-
 }
 
 bool Burst::RequestHandler::checkCredentials(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
@@ -736,7 +737,7 @@ void Burst::RequestHandler::changeSettings(Poco::Net::HTTPServerRequest& request
 				else if (key == "submission-max-retry")
 					MinerConfig::getConfig().setMaxSubmissionRetry(np::parseUnsigned(value));
 				else if (key == "submit-probability")
-					MinerConfig::getConfig().setSubmitProbability(np::parseFloat(value));
+					MinerConfig::getConfig().setSubmitProbability(static_cast<float>(np::parseFloat(value)));
 				else if (key == "max-historical-blocks")
 					MinerConfig::getConfig().setMaxHistoricalBlocks(np::parseUnsigned(value));
 				else if (key == "target-deadline")

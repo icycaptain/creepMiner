@@ -23,9 +23,8 @@
 
 #include <Poco/Types.h>
 #include <mutex>
-#include <vector>
-#include <condition_variable>
 #include "Declarations.hpp"
+#include <vector>
 
 namespace Burst
 {
@@ -34,8 +33,10 @@ namespace Burst
 	class PlotGenerator
 	{
 	public:
+		static std::vector<char> generate(Poco::UInt64 account, Poco::UInt64 nonce);
+		static Poco::UInt64 check(const std::vector<char>& buffer, const Miner& miner);
 		static Poco::UInt64 generateAndCheck(Poco::UInt64 account, Poco::UInt64 nonce, const Miner& miner);
-		static float checkPlotfileIntegrity(std::string plotPath, Miner& miner);
+		static float checkPlotfileIntegrity(const std::string& plotPath, Miner& miner);
 	};
 
 	/*template <typename TShabal>

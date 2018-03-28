@@ -44,6 +44,13 @@ namespace Burst
 		 * \param path The path to the plotfile.
 		 * \param size The size of the plotfile in Bytes.
 		 */
+		PlotFile(const std::string& path, Poco::UInt64 size);
+
+		/**
+		 * \brief Constructor.
+		 * \param path The path to the plotfile.
+		 * \param size The size of the plotfile in Bytes.
+		 */
 		PlotFile(std::string&& path, Poco::UInt64 size);
 
 		/**
@@ -99,6 +106,12 @@ namespace Burst
 		 * \return The size of a scoop of all nonces inside a stagger in bytes.
 		 */
 		Poco::UInt64 getStaggerScoopBytes() const;
+
+		/**
+		 * \brief Returns the string representation of the plotfile.
+		 * Format: <accountId>_<startNonce>_<nonceCount>_<staggerSize>
+		 */
+		std::string toString() const;
 
 	private:
 		std::string path_;
@@ -230,4 +243,9 @@ namespace Burst
 		std::vector<std::shared_ptr<PlotDir>> relatedDirs_;
 		std::string hash_;
 	};
+
+	namespace PlotHelper
+	{
+		Poco::UInt64 checkPlotOverlaps(const std::vector<std::shared_ptr<PlotFile>>& plotFiles);
+	}
 }

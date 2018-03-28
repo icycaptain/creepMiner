@@ -29,7 +29,11 @@
 #include "logging/MinerLogger.hpp"
 #include "MinerUtil.hpp"
 
-Burst::PlotFile::PlotFile(std::string&& path, Poco::UInt64 size)
+Burst::PlotFile::PlotFile(const std::string& path, const Poco::UInt64 size)
+	: PlotFile{std::string{path}, size}
+{}
+
+Burst::PlotFile::PlotFile(std::string&& path, const Poco::UInt64 size)
 	: path_(move(path)), size_(size)
 {
 	accountId_ = stoull(getAccountIdFromPlotFile(path_));
@@ -83,8 +87,13 @@ Poco::UInt64 Burst::PlotFile::getStaggerScoopBytes() const
 	return getStaggerSize() * Settings::ScoopSize;
 }
 
-Burst::PlotDir::PlotDir(std::string plotPath, Type type)
-	: path_{std::move(plotPath)},
+std::string Burst::PlotFile::toString() const
+{
+	return Poco::format("%Lu_%Lu_%Lu_%Lu", getAccountId(), getNonceStart(), getNonces(), getStaggerSize());
+}
+
+Burst::PlotDir::PlotDir(std::string path, const Type type)
+	: path_{std::move(path)},
 	  type_{type},
 	  size_{0}
 {
@@ -115,7 +124,7 @@ Burst::PlotDir::PlotList Burst::PlotDir::getPlotfiles(bool recursive) const
 	if (recursive)
 	{
 		// copy also all plot files inside all related plot directories
-		for (auto relatedPlotDir : getRelatedDirs())
+		for (const auto& relatedPlotDir : getRelatedDirs())
 		{
 			auto relatedPlotFiles = relatedPlotDir->getPlotfiles(true);
 			plotFiles.insert(std::end(plotFiles), std::begin(relatedPlotFiles), std::end(relatedPlotFiles));
@@ -191,7 +200,7 @@ bool Burst::PlotDir::addPlotLocation(const std::string& fileOrPath)
 		if (fileOrDir.isDirectory())
 		{
 			Poco::DirectoryIterator iter{fileOrDir};
-			Poco::DirectoryIterator end;
+			const Poco::DirectoryIterator end;
 
 			while (iter != end)
 			{
@@ -214,14 +223,14 @@ bool Burst::PlotDir::addPlotLocation(const std::string& fileOrPath)
 
 std::shared_ptr<Burst::PlotFile> Burst::PlotDir::addPlotFile(const Poco::File& file)
 {
-	auto result = isValidPlotFile(file.path());
+	const auto result = isValidPlotFile(file.path());
 
 	if (result == PlotCheckResult::Ok)
 	{
 		// plot file is already in our list
-		for (size_t i = 0; i < plotfiles_.size(); i++)
-			if (plotfiles_[i]->getPath() == file.path())
-				return plotfiles_[i];
+		for (auto& plotfile : plotfiles_)
+			if (plotfile->getPath() == file.path())
+				return plotfile;
 
 		// make a new plotfile and add it to the list
 		auto plotFile = std::make_shared<PlotFile>(std::string(file.path()), file.getSize());
@@ -234,7 +243,7 @@ std::shared_ptr<Burst::PlotFile> Burst::PlotDir::addPlotFile(const Poco::File& f
 	if (result == PlotCheckResult::EmptyParameter)
 		return nullptr;
 
-	std::string errorString = "";
+	std::string errorString;
 
 	if (result == PlotCheckResult::Incomplete)
 		errorString = "The plotfile is incomplete!";
@@ -256,9 +265,68 @@ void Burst::PlotDir::recalculateHash()
 
 	hash_.clear();
 
-	for (const auto plotFile : getPlotfiles(true))
+	for (const auto& plotFile : getPlotfiles(true))
 		shaStream << plotFile->getPath();
 
 	shaStream << std::flush;
 	hash_ = Poco::SHA1Engine::digestToHex(sha.digest());
+}
+
+Poco::UInt64 Burst::PlotHelper::checkPlotOverlaps(const std::vector<std::shared_ptr<PlotFile>>& plotFiles)
+{
+	Poco::UInt64 totalOverlaps = 0;
+
+	for (const auto& lhs : plotFiles)
+	{
+		for (const auto& rhs : plotFiles)
+		{
+			if (lhs == rhs || lhs->getAccountId() != rhs->getAccountId())
+				// same plotfile or different account, skip
+				continue;
+			
+			Poco::UInt64 checkStartNonceFirst = 0,
+			             checkNoncesFirst = 0,
+			             checkStartNonceSecond = 0,
+			             checkNoncesSecond = 0;
+
+			const std::string* pathFirst = nullptr;
+			const std::string* pathSecond = nullptr;
+
+			// start nonce of rhs is inside of nonce range of lhs
+			if (rhs->getNonceStart() >= lhs->getNonceStart() &&
+				rhs->getNonceStart() < lhs->getNonceStart() + lhs->getNonces())
+			{
+				checkStartNonceFirst = lhs->getNonceStart();
+				checkNoncesFirst = lhs->getNonces();
+				checkStartNonceSecond = rhs->getNonceStart();
+				checkNoncesSecond = rhs->getNonces();
+				pathFirst = &lhs->getPath();
+				pathSecond = &rhs->getPath();
+			}
+			// start nonce of lhs is inside of nonce range of rhs
+			else if (lhs->getNonceStart() >= rhs->getNonceStart() &&
+				lhs->getNonceStart() < rhs->getNonceStart() + rhs->getNonces())
+			{
+				checkStartNonceFirst = rhs->getNonceStart();
+				checkNoncesFirst = rhs->getNonces();
+				checkStartNonceSecond = lhs->getNonceStart();
+				checkNoncesSecond = lhs->getNonces();
+				pathFirst = &rhs->getPath();
+				pathSecond = &lhs->getPath();
+			}
+
+			if (pathFirst != nullptr && pathSecond != nullptr)
+			{
+				auto overlap = checkStartNonceFirst + checkNoncesFirst - checkStartNonceSecond;
+
+				if (checkNoncesSecond < overlap)
+					overlap = checkNoncesSecond;
+
+				log_error(MinerLogger::miner, "%s and %s overlap by %Lu nonces", *pathFirst, *pathSecond, overlap);
+				totalOverlaps++;
+			}
+		}
+	}
+
+	return totalOverlaps;
 }

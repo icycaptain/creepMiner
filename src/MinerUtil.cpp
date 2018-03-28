@@ -90,7 +90,9 @@ std::string Burst::getFileNameFromPath(const std::string& strPath)
 {
 	size_t iLastSeparator;
 	return strPath.substr((iLastSeparator = strPath.find_last_of("/\\")) !=
-						  std::string::npos ? iLastSeparator + 1 : 0, strPath.size() - strPath.find_last_of('.'));
+	                      std::string::npos
+		                      ? iLastSeparator + 1
+		                      : 0, strPath.size() - strPath.find_last_of('.'));
 }
 
 std::vector<std::string> Burst::splitStr(const std::string& s, char delim)
@@ -103,20 +105,21 @@ std::vector<std::string> Burst::splitStr(const std::string& s, char delim)
 std::vector<std::string> Burst::splitStr(const std::string& s, const std::string& delim)
 {
 	std::vector<std::string> tokens;
-	std::string::size_type pos, lastPos = 0, length = s.length();
+	std::string::size_type lastPos = 0;
+	const std::string::size_type length = s.length();
 
-	using size_type  = std::vector<std::string>::size_type;
+	using size_type = std::vector<std::string>::size_type;
 
-	while(lastPos < length + 1)
+	while (lastPos < length + 1)
 	{
-		pos = s.find_first_of(delim, lastPos);
+		std::string::size_type pos = s.find_first_of(delim, lastPos);
 
-		if(pos == std::string::npos)
+		if (pos == std::string::npos)
 			pos = length;
 
-		if(pos != lastPos)
-			tokens.push_back(std::string(s.data() + lastPos,
-			static_cast<size_type>(pos-lastPos)));
+		if (pos != lastPos)
+			tokens.emplace_back(s.data() + lastPos,
+			                    static_cast<size_type>(pos - lastPos));
 
 		lastPos = pos + 1;
 	}
@@ -139,23 +142,23 @@ Burst::PlotCheckResult Burst::isValidPlotFile(const std::string& filePath)
 {
 	try
 	{
-		auto fileName = getFileNameFromPath(filePath);
+		const auto fileName = getFileNameFromPath(filePath);
 
-		auto accountIdStr = getAccountIdFromPlotFile(fileName);
-		auto nonceStartStr = getStartNonceFromPlotFile(fileName);
-		auto nonceCountStr = getNonceCountFromPlotFile(fileName);
-		auto staggerStr = getStaggerSizeFromPlotFile(fileName);
+		const auto accountIdStr = getAccountIdFromPlotFile(fileName);
+		const auto nonceStartStr = getStartNonceFromPlotFile(fileName);
+		const auto nonceCountStr = getNonceCountFromPlotFile(fileName);
+		const auto staggerStr = getStaggerSizeFromPlotFile(fileName);
 
-		if (accountIdStr == "" ||
-			nonceStartStr == "" ||
-			nonceCountStr == "" ||
-			staggerStr == "")
+		if (accountIdStr.empty() ||
+			nonceStartStr.empty() ||
+			nonceCountStr.empty() ||
+			staggerStr.empty())
 			return PlotCheckResult::EmptyParameter;
 
-		volatile auto accountId = std::stoull(accountIdStr);
+		const volatile auto accountId = std::stoull(accountIdStr);
 		std::stoull(nonceStartStr);
-		volatile auto nonceCount = std::stoull(nonceCountStr);
-		volatile auto staggerSize = std::stoull(staggerStr);
+		const volatile auto nonceCount = std::stoull(nonceCountStr);
+		const volatile auto staggerSize = std::stoull(staggerStr);
 
 		// values are 0
 		if (accountId == 0 ||
@@ -170,20 +173,20 @@ Burst::PlotCheckResult Burst::isValidPlotFile(const std::string& filePath)
 			if (nonceCount % staggerSize != 0)
 				return PlotCheckResult::WrongStaggersize;
 
-			Poco::File file{ filePath };
-		
+			Poco::File file{filePath};
+
 			// file is incomplete
 			if (nonceCount * Settings::PlotSize != file.getSize())
 				return PlotCheckResult::Incomplete;
 
-			std::ifstream alternativeFileData{ filePath + ":stream" };
+			std::ifstream alternativeFileData{filePath + ":stream"};
 
 			if (alternativeFileData)
 			{
 				std::string content(std::istreambuf_iterator<char>(alternativeFileData), {});
 				alternativeFileData.close();
 
-				auto noncesWrote = reinterpret_cast<const Poco::UInt64*>(content.data());
+				const auto noncesWrote = reinterpret_cast<const Poco::UInt64*>(content.data());
 
 				if (*noncesWrote != nonceCount)
 					return PlotCheckResult::Incomplete;
@@ -235,18 +238,18 @@ std::string Burst::getStartNonceFromPlotFile(const std::string& path)
 
 std::string Burst::deadlineFormat(Poco::UInt64 seconds)
 {
-	auto secs = seconds;
-	auto mins = secs / 60;
-	auto hours = mins / 60;
-	auto day = hours / 24;
-	auto months = day / 30;
-	auto years = months / 12;
-	
+	const auto secs = seconds;
+	const auto mins = secs / 60;
+	const auto hours = mins / 60;
+	const auto day = hours / 24;
+	const auto months = day / 30;
+	const auto years = months / 12;
+
 	std::stringstream ss;
-	
+
 	ss.imbue(std::locale(""));
 	ss << std::fixed;
-	
+
 	if (years > 0)
 		ss << years << "y ";
 	if (months > 0)
@@ -266,12 +269,12 @@ std::string Burst::deadlineFormat(Poco::UInt64 seconds)
 
 Poco::UInt64 Burst::deadlineFragment(Poco::UInt64 seconds, Burst::DeadlineFragment fragment)
 {
-	auto secs = seconds;
-	auto mins = secs / 60;
-	auto hours = mins / 60;
-	auto day = hours / 24;
-	auto months = day / 30;
-	auto years = months / 12;
+	const auto secs = seconds;
+	const auto mins = secs / 60;
+	const auto hours = mins / 60;
+	const auto day = hours / 24;
+	const auto months = day / 30;
+	const auto years = months / 12;
 
 	switch (fragment)
 	{
@@ -298,10 +301,10 @@ Poco::UInt64 Burst::formatDeadline(const std::string& format)
 	Poco::UInt64 deadline = 0u;
 	std::locale loc;
 
-	std::regex years("\\d*y");
-	std::regex months("\\d*m");
-	std::regex days("\\d*d");
-	std::regex hms("\\d\\d:\\d\\d:\\d\\d");
+	const std::regex years("\\d*y");
+	const std::regex months("\\d*m");
+	const std::regex days("\\d*d");
+	const std::regex hms(R"(\d\d:\d\d:\d\d)");
 
 	const auto extractFunction = [](const std::string& token, uint32_t conversion, uint32_t postfixSize = 1)
 	{
@@ -335,7 +338,7 @@ std::string Burst::gbToString(Poco::UInt64 size)
 }
 
 std::string Burst::memToString(Poco::UInt64 size, MemoryUnit factor, Poco::UInt8 precision)
-{	
+{
 	std::stringstream ss;
 	ss << std::fixed << std::setprecision(precision);
 	ss << static_cast<double>(size) / static_cast<Poco::UInt64>(factor);
@@ -371,13 +374,14 @@ std::string Burst::getInformationFromPlotFile(const std::string& path, Poco::UIn
 	return fileNamePart[index];
 }
 
-std::string Burst::encrypt(const std::string& decrypted, const std::string& algorithm, std::string& key, std::string& salt, Poco::UInt32 iterations)
+std::string Burst::encrypt(const std::string& decrypted, const std::string& algorithm, std::string& key,
+                           std::string& salt, Poco::UInt32 iterations)
 {
 	poco_ndc(encryptAES256);
-	
+
 	if (decrypted.empty())
 		return "";
-	
+
 	if (iterations == 0)
 		return "";
 
@@ -410,10 +414,10 @@ std::string Burst::encrypt(const std::string& decrypted, const std::string& algo
 		if (salt.empty())
 			salt = createRandomCharSequence(15);
 
-		Poco::Crypto::CipherKey cipherKey(algorithm, key, salt, iterations);
+		const Poco::Crypto::CipherKey cipherKey(algorithm, key, salt, iterations);
 		auto& factory = Poco::Crypto::CipherFactory::defaultFactory();
 		auto cipher = factory.createCipher(cipherKey);
-		
+
 		return cipher->encryptString(decrypted, Poco::Crypto::Cipher::ENC_BASE64);
 	}
 	catch (Poco::Exception& exc)
@@ -425,7 +429,8 @@ std::string Burst::encrypt(const std::string& decrypted, const std::string& algo
 	}
 }
 
-std::string Burst::decrypt(const std::string& encrypted, const std::string& algorithm, const std::string& key, const std::string& salt, Poco::UInt32 iterations)
+std::string Burst::decrypt(const std::string& encrypted, const std::string& algorithm, const std::string& key,
+                           const std::string& salt, Poco::UInt32 iterations)
 {
 	poco_ndc(decryptAES256);
 
@@ -434,7 +439,7 @@ std::string Burst::decrypt(const std::string& encrypted, const std::string& algo
 
 	try
 	{
-		Poco::Crypto::CipherKey cipherKey(algorithm, key, salt, iterations);
+		const Poco::Crypto::CipherKey cipherKey(algorithm, key, salt, iterations);
 		auto& factory = Poco::Crypto::CipherFactory::defaultFactory();
 		auto cipher = factory.createCipher(cipherKey);
 		return cipher->decryptString(encrypted, Poco::Crypto::Cipher::ENC_BASE64);
@@ -450,8 +455,8 @@ std::string Burst::decrypt(const std::string& encrypted, const std::string& algo
 
 Poco::Timespan Burst::secondsToTimespan(float seconds)
 {
-	auto secondsInt = static_cast<long>(seconds);
-	auto microSeconds = static_cast<long>((seconds - secondsInt) * 100000);
+	const auto secondsInt = static_cast<long>(seconds);
+	const auto microSeconds = static_cast<long>((seconds - secondsInt) * 100000);
 	return Poco::Timespan{secondsInt, microSeconds};
 }
 
@@ -498,7 +503,7 @@ Poco::JSON::Object Burst::createJsonDeadline(const Deadline& deadline, const std
 Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 {
 	Poco::JSON::Object json;
-	auto blockPtr = data.getBlockData();
+	const auto blockPtr = data.getBlockData();
 
 	if (blockPtr == nullptr)
 		return json;
@@ -514,10 +519,13 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	json.set("baseTarget", std::to_string(block.getBasetarget()));
 	json.set("gensigStr", block.getGensigStr());
 	json.set("time", getTime());
-	json.set("startTime", std::to_string( std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() ));
+	json.set("startTime",
+	         std::to_string(
+		         std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).
+		         count()));
 	json.set("blocksMined", std::to_string(data.getBlocksMined()));
 	json.set("blocksWon", std::to_string(data.getBlocksWon()));
-	
+
 	if (bestOverall != nullptr)
 		json.set("bestOverall", createJsonDeadline(*bestOverall));
 	else
@@ -534,16 +542,16 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	//Read roundTimes and BlockTimes from blockdata
 	Poco::JSON::Array roundTimeHistory;
 	Poco::JSON::Array blockTimeHistory;
-	int nRTimes = 0;
+	auto nRTimes = 0;
 	double sumRTimes = 0;
 	double maxRoundTime = 0;
-	int nBTimes = 0;
+	auto nBTimes = 0;
 	double sumBTimes = 0;
 	double maxBlockTime = 0;
 
 	for (auto& historicalRoundTime : data.getAllHistoricalBlockData())
 	{
-		double roundTime = historicalRoundTime->getRoundTime();
+		const auto roundTime = historicalRoundTime->getRoundTime();
 		if (roundTime > 0)
 		{
 			Poco::JSON::Array jsonRoundTimeHistory;
@@ -554,14 +562,15 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 			sumRTimes += roundTime;
 			if (roundTime > maxRoundTime) maxRoundTime = roundTime;
 		}
-		double blockTime = historicalRoundTime->getBlockTime();
+		const auto blockTime = historicalRoundTime->getBlockTime();
 		Poco::JSON::Array jsonBlockTimeHistory;
 		jsonBlockTimeHistory.add(std::to_string(historicalRoundTime->getBlockheight()));
 		jsonBlockTimeHistory.add(std::to_string(blockTime));
 		blockTimeHistory.add(jsonBlockTimeHistory);
 		nBTimes++;
 		sumBTimes += blockTime;
-		if (blockTime > maxBlockTime) maxBlockTime = blockTime;
+		if (blockTime > maxBlockTime)
+			maxBlockTime = blockTime;
 	}
 	double meanRoundTime;
 	if (nRTimes > 0)
@@ -581,7 +590,7 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	json.set("meanRoundTime", std::to_string(meanRoundTime));
 	json.set("maxRoundTime", std::to_string(maxRoundTime));
 	json.set("roundTimeHistory", roundTimeHistory);
-		
+
 	//get deadlines from blockdata
 	Poco::JSON::Array bestDeadlines;
 	Poco::UInt64 maxDeadline = 0;
@@ -593,16 +602,17 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	{
 		if (historicalDeadline->getBestDeadline() != nullptr)
 		{
-			Poco::UInt64 thisDL = historicalDeadline->getBestDeadline()->getDeadline();
+			const auto thisDl = historicalDeadline->getBestDeadline()->getDeadline();
 			Poco::JSON::Array jsonBestDeadline;
 			jsonBestDeadline.add(std::to_string(historicalDeadline->getBlockheight()));
-			jsonBestDeadline.add(std::to_string(thisDL));
+			jsonBestDeadline.add(std::to_string(thisDl));
 			bestDeadlines.add(jsonBestDeadline);
-			if( thisDL > maxDeadline ) maxDeadline = thisDL;
+			if (thisDl > maxDeadline) maxDeadline = thisDl;
 			nDeadlines++;
 			if (historicalDeadline->getBlockTime() > meanRoundTime)
 			{
-				totalTarget += static_cast<double>(thisDL) / (18325193796.0f / static_cast<double>(historicalDeadline->getBasetarget()));
+				totalTarget += static_cast<double>(thisDl) / (18325193796.0f / static_cast<double>(historicalDeadline->
+					getBasetarget()));
 				nTargets++;
 			}
 		}
@@ -613,49 +623,52 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	//calc deadline performance
 	if (nTargets > 0)
 	{
-		double deadlinePerformance = MinerConfig::getConfig().getDeadlinePerformanceFac() * static_cast<double>((nTargets - 1)) / totalTarget;
+		const auto deadlinePerformance = MinerConfig::getConfig().getDeadlinePerformanceFac() * (nTargets - 1) / totalTarget;
 		json.set("deadlinePerformance", deadlinePerformance);
 	}
-	else {
+	else
+	{
 		json.set("deadlinePerformance", 0);
 	}
 
 	//Calculate Deadline distribution from blockdata
-	if (nDeadlines > 0) 
+	if (nDeadlines > 0)
 	{
-		int nClasses = ceil(sqrt(nDeadlines));
-		Poco::UInt64 classWidth = ceil( static_cast<double>(maxDeadline) / static_cast<double>(nClasses) )+1;
-		int *deadlineBins = new int[nClasses] ;
-		for (int i = 0; i < nClasses; i++) deadlineBins[i] = 0;
+		const auto nClasses = static_cast<size_t>(ceil(sqrt(nDeadlines)));
+		const auto classWidth = static_cast<Poco::UInt64>(ceil(
+			static_cast<double>(maxDeadline) / static_cast<double>(nClasses)) + 1);
+		std::map<Poco::UInt64, Poco::UInt64> deadlineBins;
 
 		for (auto& historicalDeadline : data.getAllHistoricalBlockData())
 		{
 			if (historicalDeadline->getBestDeadline() != nullptr)
 			{
-				Poco::UInt64 thisDL = historicalDeadline->getBestDeadline()->getDeadline();
-				int bin = floor(static_cast<double>(thisDL) / static_cast<double>(classWidth));
-				if (bin > nClasses - 1) bin = nClasses - 1;
-				deadlineBins[ bin ]++;
+				const auto thisDl = historicalDeadline->getBestDeadline()->getDeadline();
+				auto bin = static_cast<Poco::UInt64>(floor(static_cast<double>(thisDl) / classWidth));
+
+				if (bin > nClasses - 1)
+					bin = nClasses - 1;
+
+				deadlineBins[bin]++;
 			}
 		}
 
-		Poco::JSON::Array deadlineDistribution;	
+		Poco::JSON::Array deadlineDistribution;
 
-		for (int iClass = 0; iClass < nClasses; iClass++)
+		for (const auto& iClass : deadlineBins)
 		{
 			Poco::JSON::Array jsonDeadlineDistribution;
-			jsonDeadlineDistribution.add(std::to_string(iClass * classWidth));
-			jsonDeadlineDistribution.add(std::to_string(deadlineBins[iClass]));
+			jsonDeadlineDistribution.add(std::to_string(iClass.first * classWidth));
+			jsonDeadlineDistribution.add(std::to_string(iClass.second));
 			deadlineDistribution.add(jsonDeadlineDistribution);
 		}
 
 		json.set("dlDistBarWidth", std::to_string(classWidth));
-		json.set("deadlineDistribution", deadlineDistribution);	
-
-		delete [] deadlineBins;
-	} else 
+		json.set("deadlineDistribution", deadlineDistribution);
+	}
+	else
 	{
-		Poco::JSON::Array deadlineDistribution;	
+		Poco::JSON::Array deadlineDistribution;
 		Poco::JSON::Array jsonDeadlineDistribution;
 		jsonDeadlineDistribution.add(std::to_string(0));
 		jsonDeadlineDistribution.add(std::to_string(0));
@@ -663,15 +676,14 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 		json.set("deadlineDistribution", deadlineDistribution);
 	}
 
-
 	//Read difficulties from blockdata
 	Poco::JSON::Array difficultyHistory;
-	int nDiffs = 0;
+	auto nDiffs = 0;
 	double sumDiffs = 0;
 
 	for (auto& historicalDifficulty : data.getAllHistoricalBlockData())
 	{
-		float blockDiff = 18325193796.0f / static_cast<float>(historicalDifficulty->getBasetarget());
+		const auto blockDiff = 18325193796.f / historicalDifficulty->getBasetarget();
 		Poco::JSON::Array jsonDifficultyHistory;
 		jsonDifficultyHistory.add(std::to_string(historicalDifficulty->getBlockheight()));
 		jsonDifficultyHistory.add(std::to_string(blockDiff));
@@ -687,7 +699,8 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 	json.set("difficulty", std::to_string(block.getDifficulty()));
 	json.set("difficultyDifference", std::to_string(data.getDifficultyDifference()));
 
-	const auto diffToJson = [&json](const HighscoreValue<Poco::UInt64>& diff, const std::string& id) {
+	const auto diffToJson = [&json](const HighscoreValue<Poco::UInt64>& diff, const std::string& id)
+	{
 		Poco::JSON::Object jsonDiff;
 		jsonDiff.set("blockheight", std::to_string(diff.height));
 		jsonDiff.set("value", std::to_string(diff.value));
@@ -703,7 +716,7 @@ Poco::JSON::Object Burst::createJsonNewBlock(const MinerData& data)
 Poco::JSON::Object Burst::createJsonConfig()
 {
 	Poco::JSON::Object json;
-	auto targetDeadline = MinerConfig::getConfig().getTargetDeadline();
+	const auto targetDeadline = MinerConfig::getConfig().getTargetDeadline();
 
 	json.set("type", "config");
 	json.set("poolUrl", MinerConfig::getConfig().getPoolUrl().getCanonical(true));
@@ -725,7 +738,8 @@ Poco::JSON::Object Burst::createJsonConfig()
 	json.set("miningIntensityRaw", std::to_string(MinerConfig::getConfig().getMiningIntensity(false)));
 	json.set("submissionMaxRetry", std::to_string(MinerConfig::getConfig().getSubmissionMaxRetry()));
 
-	const auto addTargetDeadline = [&json](const std::string& id, auto value) {
+	const auto addTargetDeadline = [&json](const std::string& id, auto value)
+	{
 		json.set("targetDeadline" + id, deadlineFormat(value));
 		json.set("targetDeadline" + id + "Raw", std::to_string(value));
 	};
@@ -742,7 +756,7 @@ Poco::JSON::Object Burst::createJsonConfig()
 	{
 		Poco::JSON::Object json_channel_priority;
 		json_channel_priority.set("numeric",
-			static_cast<int>(MinerLogger::getStringToPriority(channel_priority.second)));
+		                          static_cast<int>(MinerLogger::getStringToPriority(channel_priority.second)));
 		json_channel_priority.set("alphaNumeric", channel_priority.second);
 		json_channel_priorities.set(channel_priority.first, json_channel_priority);
 	}
@@ -763,7 +777,7 @@ Poco::JSON::Object Burst::createJsonProgress(float progressRead, float progressV
 
 Poco::JSON::Object Burst::createJsonLastWinner(const MinerData& data)
 {
-	auto block = data.getBlockData();
+	const auto block = data.getBlockData();
 
 	if (block == nullptr || block->getLastWinner() == nullptr)
 		return Poco::JSON::Object{};
@@ -850,11 +864,11 @@ std::string Burst::getTime()
 	strftime (buffer, 80, "%X",timeinfo);
 
 	ss << buffer;
-#else 
-	auto now = std::chrono::system_clock::now();
-	auto now_c = std::chrono::system_clock::to_time_t(now);
+#else
+	const auto now = std::chrono::system_clock::now();
+	auto nowC = std::chrono::system_clock::to_time_t(now);
 	ss.imbue(std::locale());
-	ss << std::put_time(std::localtime(&now_c), "%X");
+	ss << std::put_time(localtime(&nowC), "%X");
 #endif
 
 	return ss.str();
@@ -863,12 +877,12 @@ std::string Burst::getTime()
 std::string Burst::getFilenameWithtimestamp(const std::string& name, const std::string& ending)
 {
 	return Poco::format("%s_%s.%s",
-		name, Poco::DateTimeFormatter::format(Poco::Timestamp(), "%Y%m%d_%H%M%s"), ending);
+	                    name, Poco::DateTimeFormatter::format(Poco::Timestamp(), "%Y%m%d_%H%M%s"), ending);
 }
 
 std::string Burst::hash_HMAC_SHA1(const std::string& plain, const std::string& passphrase)
 {
-	Poco::HMACEngine<Poco::SHA1Engine> engine{ passphrase };
+	Poco::HMACEngine<Poco::SHA1Engine> engine{passphrase};
 	engine.update(plain);
 	auto& digest = engine.digest();
 	return Poco::DigestEngine::digestToHex(digest);
@@ -882,14 +896,14 @@ bool Burst::check_HMAC_SHA1(const std::string& plain, const std::string& hashed,
 		return plain.empty();
 
 	// first, hash the plain text
-	Poco::HMACEngine<Poco::SHA1Engine> engine{ passphrase };
+	Poco::HMACEngine<Poco::SHA1Engine> engine{passphrase};
 	//
 	engine.update(plain);
 	//
 	auto& digest = engine.digest();
 
 	// create the digest for the hashed word
-	auto hashedDigest = Poco::HMACEngine<Poco::SHA1Engine>::digestFromHex(hashed);
+	const auto hashedDigest = Poco::HMACEngine<Poco::SHA1Engine>::digestFromHex(hashed);
 
 	// check if its the same
 	return digest == hashedDigest;
@@ -897,25 +911,26 @@ bool Burst::check_HMAC_SHA1(const std::string& plain, const std::string& hashed,
 
 std::string Burst::createTruncatedString(const std::string& string, size_t padding, size_t size)
 {
-	std::string padded_string;
+	std::string paddedString;
 
 	for (size_t i = 0; i < string.size(); i += size)
 	{
-		auto max_size = std::min(size, string.size());
+		const auto maxSize = std::min(size, string.size());
 
-		padded_string += string.substr(i, max_size);
+		paddedString += string.substr(i, maxSize);
 
 		// reached the end of the string
 		if (i >= string.size())
 			break;
-		else if (i + size < string.size())
+
+		if (i + size < string.size())
 		{
-			padded_string += '\n';
-			padded_string += std::string(padding, ' ');
+			paddedString += '\n';
+			paddedString += std::string(padding, ' ');
 		}
 	}
 
-	return padded_string;
+	return paddedString;
 }
 
 bool Burst::cpuHasInstructionSet(CpuInstructionSet cpuInstructionSet)
@@ -1019,7 +1034,7 @@ size_t Burst::getMemorySize()
 	MEMORYSTATUSEX status;
 	status.dwLength = sizeof(status);
 	GlobalMemoryStatusEx(&status);
-	return (size_t)status.ullTotalPhys;
+	return static_cast<size_t>(status.ullTotalPhys);
 
 #elif defined(__unix__) || defined(__unix) || defined(unix) || (defined(__APPLE__) && defined(__MACH__))
 	/* UNIX variants. ------------------------------------------- */
@@ -1078,7 +1093,7 @@ size_t Burst::getMemorySize()
 void Burst::setStdInEcho(bool enable)
 {
 #ifdef WIN32
-	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	const auto hStdin = GetStdHandle(STD_INPUT_HANDLE);
 	DWORD mode;
 	GetConsoleMode(hStdin, &mode);
 
